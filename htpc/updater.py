@@ -31,8 +31,9 @@ from apscheduler.triggers.interval import IntervalTrigger
 from htpc.root import do_restart
 
 # configure git repo
-gitUser = 'Hellowlol'
+gitUser = 'fsteccanella'
 gitRepo = 'HTPC-Manager'
+gitBranch = 'master'
 
 
 class Updater(object):
@@ -228,14 +229,14 @@ class GitUpdater(object):
         #self.update_remote_origin() # Disable this since it a fork for now.
 
     def update_remote_origin(self):
-        self.git_exec(self.git, 'config remote.origin.url https://github.com/Hellowlol/HTPC-Manager.git')
+        self.git_exec(self.git, 'config remote.origin.url https://github.com/'+gitUser+'/'+gitRepo+'.git')
 
     def current_branch_name(self):
         output = self.git_exec(self.git, 'rev-parse --abbrev-ref HEAD')
         if output:
             return output
         else:
-            return htpc.settings.get('branch', 'master2')
+            return htpc.settings.get('branch', gitBranch)
 
     def latest(self):
         """ Get hash of latest commit on github. """
@@ -277,9 +278,9 @@ class GitUpdater(object):
             d["verified"] = True
         else:
             # If its false, default to master branch
-            d["branch"] = htpc.settings.get('branch', 'master2')
+            d["branch"] = htpc.settings.get('branch', gitBranch)
 
-        branches = self.git_exec(self.git, 'ls-remote --heads https://github.com/Hellowlol/HTPC-Manager.git')
+        branches = self.git_exec(self.git, 'ls-remote --heads https://github.com/'+gitUser+'/'+gitRepo+'.git')
         if branches:
             # find all branches except the current branch.
             d["branches"] = [b for b in re.findall('\S+\Wrefs/heads/(.*)', branches) if b != cbn]
@@ -292,10 +293,10 @@ class GitUpdater(object):
         self.logger.info("Attempting update through Git.")
         self.UPDATING = 1
 
-        if htpc.settings.get('branch', 'master2') == self.current_branch_name():
-            output = self.git_exec(self.git, 'pull origin %s' % htpc.settings.get('branch', 'master2'))
+        if htpc.settings.get('branch', gitBranch) == self.current_branch_name():
+            output = self.git_exec(self.git, 'pull origin %s' % htpc.settings.get('branch', gitBranch))
         else:
-            output = self.git_exec(self.git, 'checkout -f ' + htpc.settings.get('branch', 'master2'))
+            output = self.git_exec(self.git, 'checkout -f ' + htpc.settings.get('branch', gitBranch))
         if not output:
             self.logger.error("Unable to update through git. Make sure that Git is located in your path and can be accessed by this application.")
         elif 'Aborting.' in output:
@@ -388,7 +389,7 @@ class SourceUpdater(object):
         """ Get hash of latest commit on github """
         self.logger.debug('Getting latest version from github.')
         try:
-            url = 'https://api.github.com/repos/%s/%s/commits/%s' % (gitUser, gitRepo, htpc.settings.get('branch', 'master2'))
+            url = 'https://api.github.com/repos/%s/%s/commits/%s' % (gitUser, gitRepo, htpc.settings.get('branch', gitBranch))
             result = loads(urllib2.urlopen(url).read())
             latest = result['sha'].strip()
             self.logger.debug('Latest version: ' + latest)
@@ -402,7 +403,7 @@ class SourceUpdater(object):
              and matching that against all branches on github """
 
         versionfile = self.current()
-        current_branch = htpc.settings.get('branch', 'master2')
+        current_branch = htpc.settings.get('branch', gitBranch)
         # should return sha on success not True False
         if not isinstance(self.current(), bool):
             try:
@@ -413,7 +414,7 @@ class SourceUpdater(object):
                         current_branch = branch["name"]
                         self.verified = True
             except:
-                self.logger.debug("Couldnt figure out what branch your using, using %s" % htpc.settings.get('branch', 'master2'))
+                self.logger.debug("Couldnt figure out what branch your using, using %s" % htpc.settings.get('branch', gitBranch))
         return current_branch
 
     def branches(self):
@@ -447,7 +448,7 @@ class SourceUpdater(object):
 
         self.UPDATING = 1
 
-        tarUrl = 'https://github.com/%s/%s/tarball/%s' % (gitUser, gitRepo, htpc.settings.get('branch', 'master2'))
+        tarUrl = 'https://github.com/%s/%s/tarball/%s' % (gitUser, gitRepo, htpc.settings.get('branch', gitBranch))
 
         # Download tar
         downloaded = self.__downloadTar(tarUrl, self.updateFile)
