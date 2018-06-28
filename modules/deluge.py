@@ -233,13 +233,14 @@ class Deluge(object):
         try:
             # format post data
             data = {'id': 1, 'method': method, 'params': arguments}
+            headers = {'Content-Type': 'application/json'}
 
-            response = self.session.post(url, data=dumps(data), verify=False)
+            response = self.session.post(url, data=dumps(data), headers=headers, verify=False)
             result = response.json()
             if result and result['error']:
                 self.logger.debug('Authenticating')
-                self.session.post(url, data=dumps({"method": "auth.login", "params": [htpc.settings.get('deluge_password', '')], "id": 1}), verify=False)
-                response = self.session.post(url, data=dumps(data), verify=False)
+                self.session.post(url, data=dumps({"method": "auth.login", "params": [htpc.settings.get('deluge_password', '')], "id": 1}), headers=headers, verify=False)
+                response = self.session.post(url, data=dumps(data), headers=headers, verify=False)
 
             return result
         except Exception as e:

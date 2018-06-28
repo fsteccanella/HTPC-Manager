@@ -1,5 +1,45 @@
 var row_n = 0
 
+function dash_radarr_calendar() {
+
+  if (!$('#dash_radarr_calendar').length) return
+  $('#dash_radarr_cal').fullCalendar({
+    editable: false,
+    handleWindowResize: true,
+    weekends: true,
+    allDayDefault: false,
+    defaultView: 'basicDay',
+    header: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'month, basicWeek, basicDay'
+    },
+    firstDay: '1',
+    columnFormat: 'ddd D/M',
+    displayEventTime: true,
+    timeFormat: 'hh:mm',
+    timezone: 'local',
+    height: 'auto',
+
+    events: {
+      url: WEBDIR + 'radarr/Calendar',
+      type: 'GET',
+    },
+    eventRender: function(event, element) {
+      var title = event.title;
+      element.text(title);
+      if (event.all.hasFile) {
+        element.addClass('calendar_has_file');
+      } else {
+        element.addClass('calendar_missing_file');
+      }
+      // add modal here?
+    }
+
+  });
+  $('#dash_radarr_cal').fullCalendar('render')
+}
+
 function dash_sonarr_calendar() {
 
   if (!$('#dash_sonarr_calendar').length) return
@@ -470,6 +510,27 @@ function loadNextAired(options) {
   })
 }
 
+function loadRadarrCalendar(options) {
+  if (!$('#radarr_calendar_table_body').length) return
+  $.getJSON(WEBDIR + 'radarr/oldCalendar', function(result) {
+    $.each(result, function(i, cal) {
+      if (i >= 5) return
+      var name = $('<a>').attr('href', 'radarr/View/' + cal.id + '/' + cal.tmdbId).html(cal.title + ' (' + cal.year + ') ');
+      var number;
+      var row = $('<tr>')
+      var img = makeIcon('fa fa-info-circle', cal.overview);
+      row.append(
+        $('<td>').append(name).append(img),
+        $('<td>').append($('<div class="pull-right">').text(moment(cal.inCinemas).fromNow()))
+      )
+      $('#radarr_calendar_table_body').append(row);
+    });
+
+  });
+}
+
+
+
 function loadsonarrCalendar(options) {
   if (!$('#calendar_table_body').length) return
   $.getJSON(WEBDIR + 'sonarr/oldCalendar', function(result) {
@@ -692,6 +753,59 @@ function loadqbit() {
   });
 }
 
+function loaduTorrent() {
+  start_refresh('uTorrent', 'loaduTorrent')
+  $.ajax({
+    'url': WEBDIR + 'utorrent/torrents',
+    'complete': function() {
+      end_refresh('uTorrent')
+    },
+    'success': function(response) {
+      if (response.result == 200) {
+        var numberofloop = 0;
+        var downloads = {};
+        var i = 0;
+        $.each(response.torrents, function(index, torrent) {
+          if (torrent.percentage_done != 1000) { // skip if 100%, see only downloading and queued torrents
+            downloads[i] = torrent;
+            i = i + 1;
+          }
+        });
+      }
+      else if (response.result == 500) {
+        $('#error_message').text("Impossible to connect to uTorrent. Maybe the remote port changed ?");
+        return false;
+      }
+      if (i > 0) {
+        var max = i;
+        if (i > 5) {
+          var max = 4;
+        }
+        $.each(downloads, function(index, torrent) {
+          tr = $('<tr>');
+          numberofloop += 1;
+          if (numberofloop <= max) {
+            tr.append(
+              $('<td>').addClass('span2').text(torrent.name),
+              $('<td>').addClass('span1').append('<div class="pull-right">' + ((torrent.percentage_done == 1000) ? "-" : "") + getReadableTime(torrent.eta) + '</div>'));
+            $('#dash_uTorrent_table_body').append(tr);
+          } else {
+
+            tr.append($('<td>').addClass('').attr("colspan", 2).append('<div class="text-center"><small><a href="utorrent/">+' + (i - max) + ' more torrents</a></small></div>'))
+            $('#dash_uTorrent_table_body').append(tr);
+            return false;
+          }
+        });
+      } else {
+        tr = $('<tr>');
+        tr.append($('<td>').attr("colspan", 2).append('<div class="text-center"><small>No active uTorrent downloads</small></div>'))
+        $('#dash_uTorrent_table_body').append(tr);
+        return false;
+      }
+    }
+  });
+}
+
 function start_refresh(module, fn) {
   if ($('#dash_' + module).children('h3:first-child').has('.refresh-btns').length == 0) {
     $('#dash_' + module).children('h3:first-child').append('<span class="refresh-btns">' +
@@ -810,3 +924,14 @@ $(document).ready(function() {
     }
   }
 })
+
+if ( dash_refresh_interval > 0 ) {
+  setInterval(function () {
+    loaduTorrent();
+    loadqbit();
+    loadsysinfo();
+    loaddiskinfo();
+    loadsmartinfo();
+  }, 1000 * dash_refresh_interval ) // timer uses miliseconds
+}
+
